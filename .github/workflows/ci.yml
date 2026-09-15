@@ -1,0 +1,66 @@
+# Check the signing keys, the documentation links and the commit trailers.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Signing keys are RSA public keys
+        run: |
+          set -- keys/*.rsa.pub
+          if [ ! -e "$1" ]; then echo "::error::no keys/*.rsa.pub found"; exit 1; fi
+          for key; do
+            openssl rsa -pubin -noout -in "$key" || { echo "::error file=$key::not a valid RSA public key"; exit 1; }
+            echo "ok: $key"
+          done
+      - name: Relative links in Markdown resolve
+        shell: python
+        run: |
+          import pathlib, re, sys
+          fail = 0
+          for md in sorted(pathlib.Path(".").rglob("*.md")):
+              if ".git" in md.parts:
+                  continue
+              text = re.sub(r"(?ms)^```.*?^```", "", md.read_text())
+              for target in re.findall(r"\]\(([^)\s]+)\)", text):
+                  if re.match(r"[a-z][a-z0-9+.-]*:|#", target):
+                      continue
+                  path = (md.parent / target.split("#")[0]).resolve()
+                  if not path.exists():
+                      print(f"::error file={md}::broken link: {target}")
+                      fail = 1
+          sys.exit(fail)
+
+  commit-check:
+    name: Commit check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 100
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Test the check
+        run: sh .github/scripts/test-commit-check.sh
+      - name: Check trailers and DCO sign-off
+        run: |
+          base=$(sh .github/scripts/base-commit.sh)
+          if [ -z "$base" ]; then echo "no new commits"; exit 0; fi
+          sh .github/scripts/commit-check.sh "$base" HEAD \
+            ${{ github.event_name == 'pull_request' && '--dco' || '' }}
