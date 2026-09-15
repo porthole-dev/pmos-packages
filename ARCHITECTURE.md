@@ -25,6 +25,11 @@ GitHub release whose tag is the path apk requests:
 | `edge` | everything except `extra-repos/systemd` | `main/aarch64` | `mirrors.pmaports_custom` = `.../releases/download` |
 | `systemd-edge` | `extra-repos/systemd` (phosh, ...) | `systemd/main/aarch64` | `mirrors.systemd_custom` = `.../releases/download/systemd` |
 
+Each tree also has an `x86_64` release (`main/x86_64`, `systemd/main/x86_64`)
+holding a signed index with no packages. pmbootstrap reads a custom mirror's
+index for the host's native architecture as well as the target's, and aborts
+with "getting APKINDEX from binary package mirror failed!" on a 404.
+
 pmbootstrap turns a mirror into `<mirror>/<branch_pmaports>` and apk appends
 `/<arch>/APKINDEX.tar.gz` (`pmb/helpers/repo.py`). `branch_pmaports` for edge
 is `main` in the current channels.cfg. A release channel such as v26.06 would
@@ -73,8 +78,8 @@ All in `.github/workflows/` on the pmaports branch.
 
 | workflow | trigger | jobs |
 | --- | --- | --- |
-| CI | push, pull request | commit trailer check (DCO sign-off on pull requests), APKBUILD lint with a version bump check, sources and patches check for changed aports |
-| Build | push, pull request, manual | select packages; build each on an aarch64 runner; publish (pushes to `taimen-bringup` only) |
+| CI | push, pull request, merge group | commit check (DCO sign-off on pull requests), APKBUILD lint with a version bump check, sources and patches check for changed aports |
+| Build | push, pull request, merge group, manual | select packages; build each on an aarch64 runner; publish (pushes to `taimen-bringup` only, every push) |
 | Upstream check | weekly, manual | sources and patches of every listed fork; one issue listing forks an upstream package outranks |
 
 pmbootstrap runs in a privileged Alpine container, prepared the way pmaports'
@@ -89,19 +94,26 @@ longer applies fails in about a minute, before any compiler runs.
 
 ## Publishing
 
-For each local repository with new packages, the publish job:
+`.github/scripts/publish.sh` on the pmaports branch. On every push to
+`taimen-bringup`, for each release (both trees, `aarch64` and `x86_64`) that
+has new packages, an index naming an `unpublished` aport (`packages.conf`), or
+an index that is missing or does not verify, the publish job:
 
-1. downloads the release's current packages;
+1. downloads the release's current packages, and fails unless it got all of
+   them;
 2. adds the new ones; a package whose file name is already published is kept
-   as it is (published versions are immutable), and older versions of the same
-   package are dropped;
+   as it is (published versions are immutable), older versions of the same
+   package are dropped, and so is any package of an `unpublished` aport;
 3. rebuilds `APKINDEX.tar.gz` with `apk index` and signs it with `abuild-sign`
    and the repository key;
 4. verifies the signature against the committed public key before uploading;
 5. uploads new packages, then the index, then deletes superseded packages, so
    the published index never names a missing file;
 6. downloads the index back, checks it is byte-identical and correctly signed,
-   and that every package it names is a release asset.
+   that every package it names is a release asset, and that it names no
+   `unpublished` aport;
+7. attests the provenance of every uploaded file (`actions/attest`), once the
+   pmaports repository is public.
 
 Every package must carry `packager = Giuseppe Maggio <jertlok@proton.me>`;
 CI sets it and publish refuses anything else.
@@ -132,3 +144,4 @@ CI sets it and publish refuses anything else.
 | CI build dependencies | forks rebuilt in each job | downloaded from this repository |
 | select "already published" | needs `PACKAGES_READ_TOKEN` | anonymous |
 | Actions minutes | 2,000 a month, 2-vCPU arm runners | unlimited, 4-vCPU arm runners |
+| build provenance attestations | not available (needs GitHub Enterprise Cloud) | on every uploaded file |
