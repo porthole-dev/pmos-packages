@@ -27,9 +27,8 @@ GitHub release whose tag is the path apk requests:
 
 pmbootstrap turns a mirror into `<mirror>/<branch_pmaports>` and apk appends
 `/<arch>/APKINDEX.tar.gz` (`pmb/helpers/repo.py`). `branch_pmaports` for edge
-is `main` in the current channels.cfg; it was `master` before, which is why an
-early hand-published release is tagged `master/aarch64`. A release channel
-such as v26.06 would get `v26.06/aarch64`.
+is `main` in the current channels.cfg. A release channel such as v26.06 would
+get `v26.06/aarch64`.
 
 A tag containing `/` works in release download URLs: GitHub serves
 `releases/download/<a>/<b>/<file>` for the tag `<a>/<b>` (checked against a
