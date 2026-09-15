@@ -1,22 +1,26 @@
-# Check the signing keys, the documentation links and the commit trailers.
+# Check the signing keys, the documentation links and the commits on pushes to
+# main, pull requests and merge groups.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Superseded pull request runs are cancelled; every push to main keeps its result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,17 +54,27 @@ jobs:
   commit-check:
     name: Commit check
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: porthole-dev/.github/actions/commit-check@2d4d1186816e5bc3997e08b490f464082f70e85f # main
+
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 100
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - name: Test the check
-        run: sh .github/scripts/test-commit-check.sh
-      - name: Check trailers and DCO sign-off
-        run: |
-          base=$(sh .github/scripts/base-commit.sh)
-          if [ -z "$base" ]; then echo "no new commits"; exit 0; fi
-          sh .github/scripts/commit-check.sh "$base" HEAD \
-            ${{ github.event_name == 'pull_request' && '--dco' || '' }}
+      - uses: porthole-dev/.github/actions/workflow-lint@2d4d1186816e5bc3997e08b490f464082f70e85f # main
+
+  ci-passed:
+    name: CI passed
+    if: ${{ !cancelled() }}
+    needs: [lint, commit-check, workflow-lint]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: porthole-dev/.github/actions/ci-passed@2d4d1186816e5bc3997e08b490f464082f70e85f # main
+        with:
+          results: ${{ join(needs.*.result, ' ') }}
