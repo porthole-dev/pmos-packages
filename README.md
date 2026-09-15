@@ -24,10 +24,15 @@ requests, so the download URLs are ordinary apk repository URLs:
 | --- | --- | --- |
 | postmarketOS edge | `main/aarch64` | forks of Alpine and pmaports packages |
 | postmarketOS edge, systemd | `systemd/main/aarch64` | forks of `extra-repos/systemd` packages, such as phosh |
+| (both, for x86_64 hosts) | `main/x86_64`, `systemd/main/x86_64` | an empty signed index |
 
 `main` is the pmaports branch of the edge channel (`branch_pmaports` in
 [channels.cfg](https://gitlab.postmarketos.org/postmarketOS/pmaports/-/blob/main/channels.cfg)).
 Firmware packages are never published here; pmbootstrap builds them locally.
+Neither are host tools such as `crossdirect`, which run in pmbootstrap's native
+chroot: pmbootstrap on an x86_64 host also reads the mirror's x86_64 index, so
+the empty one is there to answer instead of a 404, and pmbootstrap builds those
+tools itself.
 
 The repository index is signed with
 [`keys/porthole-dev-packages-20260915.rsa.pub`](keys/porthole-dev-packages-20260915.rsa.pub).
@@ -81,6 +86,16 @@ repository instead:
 
 ```sh
 gh release download main/aarch64 -R porthole-dev/pmos-packages -D repo/main/aarch64
+```
+
+## Verify where a package came from
+
+Once the pmaports repository is public, every file the build workflow uploads
+here (packages and indexes) carries a signed build provenance attestation
+naming the workflow run and commit that produced it:
+
+```sh
+gh attestation verify mesa-26.2.2-r51.apk -R porthole-dev/pmaports
 ```
 
 ## Contributing
