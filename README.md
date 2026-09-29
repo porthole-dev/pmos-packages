@@ -1,13 +1,6 @@
 # pmos-packages
 
-> **Unofficial.** Not affiliated with or endorsed by Nura, Google, or
-> Qualcomm. Do not report problems with this port to Nura; open an
-> issue here.
->
-> **Experimental.** Flashing can brick the device or erase data. No warranty,
-> see LICENSE.
->
-> **AI-assisted.** See [AI.md](AI.md).
+[Website](https://porthole-dev.github.io/porthole/) · [Downloads](https://porthole-dev.github.io/porthole/downloads/) · [Device support](https://porthole-dev.github.io/porthole/devices/)
 
 Prebuilt Nura packages for the porthole Pixel 2 XL port, published as a signed
 apk repository that pmbootstrap and apk use directly. CI builds them from the
@@ -34,10 +27,10 @@ requests, so the download URLs are ordinary apk repository URLs:
 
 `main` is the pmaports branch of the edge channel (`branch_pmaports` in
 [channels.cfg](https://gitlab.postmarketos.org/postmarketOS/pmaports/-/blob/main/channels.cfg)).
-Firmware remains excluded by default. After the maintainer records the full
-Google and Qualcomm Taimen grant, setting `FIRMWARE_GRANT_TAIMEN=approved` in
-the pmaports repository variables permits only `firmware-google-taimen` and
-its optional fingerprint subpackage. Other firmware remains excluded.
+Taimen firmware is published under the recorded
+[Google and Qualcomm grant](https://github.com/porthole-dev/firmware-google-taimen/blob/main/REDISTRIBUTION.md).
+The exception covers the base package and optional fingerprint subpackage.
+Other device firmware remains excluded.
 Neither are host tools such as `crossdirect`, which run in pmbootstrap's native
 chroot: pmbootstrap on an x86_64 host also reads the mirror's x86_64 index, so
 the empty one is there to answer instead of a 404, and pmbootstrap builds those
@@ -59,6 +52,7 @@ Install the key, then add the repositories in front of the official ones:
 
 ```sh
 work=$(pmbootstrap config work)
+mkdir -p "$work/config_apk_keys"
 curl -fLo "$work/config_apk_keys/porthole-dev-packages-20260915.rsa.pub" \
     https://raw.githubusercontent.com/porthole-dev/pmos-packages/main/keys/porthole-dev-packages-20260915.rsa.pub
 pmbootstrap config mirrors.pmaports_custom https://github.com/porthole-dev/pmos-packages/releases/download
@@ -91,19 +85,9 @@ doas apk update
 doas apk upgrade
 ```
 
-## While this repository is private
-
-Release downloads need authentication, which apk and pmbootstrap cannot send.
-Download a release with the GitHub CLI and use the directory as a local
-repository instead:
-
-```sh
-gh release download main/aarch64 -R porthole-dev/pmos-packages -D repo/main/aarch64
-```
-
 ## Verify where a package came from
 
-Once the pmaports repository is public, every file the build workflow uploads
+Every file the build workflow uploads
 here (packages and indexes) carries a signed build provenance attestation
 naming the workflow run and commit that produced it:
 
