@@ -7,7 +7,7 @@ built this way.
 
 The source of every package is a branch of
 [porthole-dev/pmaports](https://github.com/porthole-dev/pmaports), a fork of
-postmarketOS pmaports. Today there is one: `taimen-bringup`, on the edge
+Nura pmaports (repository namespace retained). Today there is one: `taimen-bringup`, on the edge
 channel, used with systemd.
 
 A fork keeps the upstream `pkgver` and uses `pkgrel` 50 or higher. apk installs
@@ -63,14 +63,15 @@ carries long-term:
 
 Aports that are not listed are still built when a push changes them.
 
-## Firmware is never published
+## Taimen firmware grant gate
 
-`firmware-*` packages contain vendor blobs that are not ours to redistribute.
-They are excluded in code, not configuration, at three points: the build job
-never builds them and deletes any that appear, the build uses pmbootstrap's
-`--ignore-depends` so the device package does not pull firmware in, and the
-publish step refuses any package named `firmware-*` or containing files under
-`lib/firmware`.
+Firmware is excluded unless the pmaports repository variable
+`FIRMWARE_GRANT_TAIMEN` is set to `approved` after the grant is documented in
+the device firmware repository. That value permits only the Taimen base and
+optional fingerprint APKs. Selection, build cleanup, and publication enforce
+the same allowlist; all other `firmware-*` packages and packages placing files
+under `lib/firmware` remain refused. The build uses `--ignore-depends`, so
+device package builds do not pull in firmware implicitly.
 
 ## Workflows
 
@@ -78,9 +79,9 @@ All in `.github/workflows/` on the pmaports branch.
 
 | workflow | trigger | jobs |
 | --- | --- | --- |
-| CI | push, pull request, merge group | commit check (DCO sign-off on pull requests), APKBUILD lint with a version bump check, sources and patches check for changed aports |
+| CI | push, pull request, merge group | commit check (DCO sign-off on external-fork pull requests), APKBUILD lint with a version bump check, sources and patches check for changed aports |
 | Build | push, pull request, merge group, manual | select packages; build each on an aarch64 runner; publish (pushes to `taimen-bringup` only, every push) |
-| Upstream check | weekly, manual | sources and patches of every listed fork; one issue listing forks an upstream package outranks |
+| Upstream check | daily versions; weekly patches; manual | sources and patches of every listed fork; one issue listing forks an upstream package outranks |
 
 pmbootstrap runs in a privileged Alpine container, prepared the way pmaports'
 own CI prepares one (`.github/scripts/run-pmbootstrap.sh`), and pinned to a
@@ -102,12 +103,12 @@ an index that is missing or does not verify, the publish job:
 1. downloads the release's current packages, and fails unless it got all of
    them;
 2. adds the new ones; a package whose file name is already published is kept
-   as it is (published versions are immutable), older versions of the same
-   package are dropped, and so is any package of an `unpublished` aport;
+   as it is (published versions are immutable), older versions are retained; different bytes under the same filename
+   fail publication. Packages of an `unpublished` aport are removed;
 3. rebuilds `APKINDEX.tar.gz` with `apk index` and signs it with `abuild-sign`
    and the repository key;
 4. verifies the signature against the committed public key before uploading;
-5. uploads new packages, then the index, then deletes superseded packages, so
+5. uploads new packages, then the index, then deletes explicitly excluded packages, so
    the published index never names a missing file;
 6. downloads the index back, checks it is byte-identical and correctly signed,
    that every package it names is a release asset, and that it names no
@@ -145,3 +146,10 @@ CI sets it and publish refuses anything else.
 | select "already published" | needs `PACKAGES_READ_TOKEN` | anonymous |
 | Actions minutes | 2,000 a month, 2-vCPU arm runners | unlimited, 4-vCPU arm runners |
 | build provenance attestations | not available (needs GitHub Enterprise Cloud) | on every uploaded file |
+
+## Release retention and build selection
+
+The reviewed publisher retains superseded APK versions and refuses conflicting
+bytes under an existing filename. Pruning requires checking all retained image
+manifests first. The source of truth for cache budgets, rebuild decisions and
+Chromium delivery is [pmaports BUILDING.md](https://github.com/porthole-dev/pmaports/blob/taimen-bringup/BUILDING.md).
