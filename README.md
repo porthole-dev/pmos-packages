@@ -1,6 +1,6 @@
 # pmos-packages
 
-[Website](https://porthole-dev.github.io/porthole/) · [Downloads](https://porthole-dev.github.io/porthole/downloads/) · [Device support](https://porthole-dev.github.io/porthole/devices/)
+[Website](https://porthole-dev.github.io/porthole/) · [Downloads](https://porthole-dev.github.io/porthole/images/) · [Device support](https://porthole-dev.github.io/porthole/devices/)
 
 Prebuilt Nura packages for the porthole Pixel 2 XL port, published as a signed
 apk repository that pmbootstrap and apk use directly. CI builds them from the
